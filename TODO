@@ -1,0 +1,8 @@
+project structure:
+  - configuration.py  <- configuration.
+  - templates/        <- templates, with structure.
+
+configuration:
+  - just return configuration variables:
+    - dependencies
+    - questions
