@@ -27,75 +27,34 @@ from version import APP
 LOGGER = logging.getLogger(__name__)
 
 
-class Loader(object):
-    def __init__(self, path):
-        self.path = path
+class Variables(dict):
+    _instance = None
 
-    @property
-    def config(self):
-        filename = os.path.join(self.path, 'settings.py')
-        config = {}
-        a = {}
-        with open(filename) as fd:
-            exec(fd.read(), {}, config)
-        return config
+    def __new__(cls, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(Variables, cls).__new__(cls, **kwargs)
+        return cls._instance
 
-    @property
-    def file_path(self):
-        return os.path.join(self.path, 'files')
+    def reset(self):
+        self.clear()
 
 
-class Runner(object):
-    def __init__(self, loader):
-        self._loader = loader
-        self._config = None
-        self._variables = None
+class CallRun(object):
+    def __init__(self, command):
+        self._command = command
 
-    def run(self, output):
-        self.load_config()
-        program = self._config.get('PROGRAM') or [['prompt'], ['copy']]
+    def __call__(self, config, template_path, output):
+        LOGGER.debug('running CallRun("%s")', self._command )
+        return subprocess.call(self._command)
 
-        for command in program:
-            LOGGER.debug('Running command: %s', command)
-            if callable(command):
-                command(self._config, loader.path, output)
-                continue
-            if isinstance(command, dict):
-                self.execute(output=output, **command)
-                continue
-            if isinstance(command, (tuple, list)):
-                self.execute(*command, output=output)
-                continue
-            if isinstance(command, str):
-                self.execute('shell', command, output=output)
-                continue
 
-    def load_config(self):
-        self._config = self._loader.config
+class CallCopy(object):
+    def __init__(self, source='files'):
+        self._source = source
 
-    def execute(self, type, arg=None, output=None):
-        if type=='shell':
-            return subprocess.call(arg)
-        if type=='prompt':
-            return self.inquire(arg)
-        if type=='copy':
-            source = arg
-            return self.generate(source, output)
-        #FIXME: print error
-
-    def inquire(self, questions=None):
-        questions = questions or self._config.get('QUESTIONS')
-        if questions is None:
-            return
-        if isinstance(questions, str):
-            q = inquirer.load_from_json(questions)
-            self._variables = inquirer.prompt(q)
-        if isinstance(questions, list):
-            q = inquirer.questions.load_from_list(questions)
-            self._variables = inquirer.prompt(q)
-
-    def generate(self, source, output):
-        source = source or self._loader.file_path
+    def __call__(self, config, template_path, output):
+        source = self._source or template_path
+        LOGGER.debug('running CallCopy("%s")', source )
         basepathlen = len(source) + 1
         for root, dirs, files in os.walk(source):
             for d in dirs:
@@ -113,7 +72,7 @@ class Runner(object):
                         LOGGER.info('Applying template %s to %s',
                                     origin, target)
                         template = jinja2.Template(fd.read())
-                        content = template.render(self._variables)
+                        content = template.render(config)
                     else:
                         target = path
                         LOGGER.info('Copying file %s to %s', origin, target)
@@ -125,6 +84,82 @@ class Runner(object):
                     continue
                 with open(target, 'w+') as fd:
                     fd.write(content)
+
+
+class CallPrompt(object):
+    def __init__(self, questions=None):
+        self._questions = questions
+
+    def __call__(self, config, template_path, output):
+        questions = self._questions or config.get('QUESTIONS')
+        if questions is None:
+            LOGGER.debug('No questions to prompt')
+            return
+
+        if isinstance(questions, str):
+            q = inquirer.load_from_json(questions)
+        if isinstance(questions, list):
+            q = inquirer.questions.load_from_list(questions)
+        Variables().update(inquirer.prompt(q))
+
+
+COMMANDS = dict(
+    run = CallRun,
+    copy = CallCopy,
+    prompt = CallPrompt,
+)
+
+
+class Loader(object):
+    def __init__(self, path):
+        self.path = path
+
+    @property
+    def config(self):
+        filename = os.path.join(self.path, 'settings.py')
+        config = {}
+        with open(filename) as fd:
+            exec(fd.read(), COMMANDS.copy(), config)
+        return config
+
+    @property
+    def file_path(self):
+        return os.path.join(self.path, 'files')
+
+
+class Runner(object):
+    def __init__(self, loader):
+        self._loader = loader
+        self._config = None
+
+    def run(self, output):
+        self.load_config()
+        program = self._config.get('PROGRAM') or [CallPrompt(), CallCopy()]
+
+        for command in program:
+            LOGGER.debug('New program command: %s', command)
+            if callable(command):
+                command(self._config, self._loader.path, output)
+                continue
+            if isinstance(command, dict):
+                self.execute(output=output, **command)
+                continue
+            if isinstance(command, (tuple, list)):
+                self.execute(*command, output=output)
+                continue
+            if isinstance(command, str):
+                self.execute('shell', command, output=output)
+                continue
+
+    def load_config(self):
+        self._config = self._loader.config
+
+    def execute(self, type, arg=None, output=None):
+        command = COMMANDS.get(type)
+        if command is None:
+            LOGGER.error('Invalid format')
+            return  # FIXME: Improve!!
+        command(arg)
 
 
 def logging_setup(verbose):
