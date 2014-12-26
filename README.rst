@@ -50,19 +50,40 @@ As easy as:
 Template creation
 =================
 
-The idea is to maintain easy templates. So, there are two main stages:
+The idea is to maintain easy but powerful templates. Learning Python is not required, but useful.
 
-#. Ask the user for some data
-#. Generate the result.
+To create a new template, there is just one requirement: the settings.py file.
 
-Let's see how to configure these steps.
 
-settings.py
------------
+settings.py file
+----------------
 
-This file should contain an uppercase variable called ``QUESTIONS``, containing a list of questions. It uses the inquirer_ format, and you can return a string.
+This file contains the settings to rule the inception. It will contains some variables (just Python_ vars).
 
-Example:
+The main one is ``program``, that is a vector. here you have an example:
+
+.. code::
+
+    # as vector
+    program = [
+        inquire(),
+        copy(),
+    ]
+
+
+
+Any operation inside the ``program`` vector is a "promise". This means it won't be evaluated until it is called later.
+
+There are several preloaded promises, but you can write your own. We will come back to this later.
+
+``inquire`` promise
+~~~~~~~~~~~~~~~~~~~
+
+Requires information from the user.
+
+As parameter, you can pass an array of Questions, as it is defined in inquirer_. If no argument is supplied, it will try to get the ``QUESTIONS`` variable from the settings file.
+
+Next examples are equivalent:
 
 .. code::
 
@@ -71,28 +92,145 @@ Example:
           "name": "name",
           "message": "What's your name"
         },
-        { "kind": "text",
-          "name": "surname",
-          "message": "What's your surname"
-        },
-        { "kind": "list",
-          "name": "size",
-          "message": "What size do you need?",
-          "choices": ["Jumbo", "Large", "Standard", "Medium", "Small", "Micro"]
-        }
     ]
 
+    program = [
+        inquire(),
+    ]
 
-files
------
+.. code::
 
-In order to generate the result, you have to store files in the ``files`` directory.
+    QUESTIONS = [
+        { "kind": "text",
+          "name": "name",
+          "message": "What's your name"
+        },
+    ]
 
-Any directory in the ``files`` directory will be created in the ``output`` directory.
-Any file ending in ``.jinja`` will be managed as a jinja_ template, using the variables retrieved by the ``QUESTIONS``.
-Any other file will be copied as it is.
+    program = [
+        inquire(QUESTIONS),
+    ]
 
-Existing files won't be overriden. You have to remove them in order to regenerate them.
+.. code::
+
+    program = [
+        inquire([
+            { "kind": "text",
+              "name": "name",
+              "message": "What's your name"
+            },
+        ]),
+    ]
+
+``copy`` promise
+~~~~~~~~~~~~~~~~
+
+This promise will copy some directory structure from our templates to the output directory. The directory structure will be copied **as is**, this means you will have to repeat the whole tree you want to build.
+
+It allows an argument, that is the directory to be used as source. If no argument is supplied, ``files`` will be used.
+
+If any file ends with ``.jinja``, it will be managed as a jinja_ template, replacing any variable inside with any variable taken with the ``inquire`` promise.
+
+This structure is valid for file names too.
+
+Structures examples:
+
+.. code::
+
+    .
+    ├── files
+    │   └── level_1
+    │       └── level_2
+    │           ├── example1.txt
+    │           ├── example2.txt.jinja
+    │           └── {{ name }}.txt
+    └── settings.py
+
+with  ``name="example3"`` will produce:
+
+.. code::
+
+    output
+    └── level_1
+        └── level_2
+            ├── example1.txt
+            ├── example2.txt
+            └── example3.txt
+
+Existing files won't be overriden.
+
+
+``run`` promise
+~~~~~~~~~~~~~~~
+
+Executes any command line script. The script should be provided as first argument. Example:
+
+.. code::
+
+   program = [
+       run('virtualenv venv'),
+   ]
+
+Pipes are not allowed.
+
+
+Creating your own promises
+--------------------------
+
+Python knowledge is required to do this.
+
+They can be defined inside the ``settings.py`` module or to be imported from other modules in the ``settings.py``
+
+A promise is just a function returning another function. Inner function should match the pattern:
+
+.. code:: python
+
+          def inner(config, template_path, output):
+              pass
+
+There are two ways to do this: with functions or classes.
+
+Function promises
+~~~~~~~~~~~~~~~~~
+
+An example is better than a thausand words:
+
+.. code:: python
+
+    def my_promise(argument_1, argument_2):
+        def inner(config, template_path, output):
+            # do whatever with argument_1, argument_2, and the others
+            pass
+        return inner
+
+Class promises
+~~~~~~~~~~~~~~
+
+Same example:
+
+.. code:: python
+
+    class my_promise(object):
+        def __init__(self, argument_1, argument_2):
+            self._arg1 = argument_1
+            self._arg2 = argument_2
+
+        def __call__(self, config, template_path, output):
+            # do whatever with argument_1, argument_2, and the others
+            pass
+
+Promises usage
+~~~~~~~~~~~~~~
+
+Both class and function promises are used in the same way:
+
+.. code:: python
+
+          program = [
+              my_promise('argument_1', 'argument_2')
+          ]
+
+
 
 To do list
 ==========

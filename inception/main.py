@@ -59,20 +59,19 @@ class CallCopy(object):
         for root, dirs, files in os.walk(source):
             for d in dirs:
                 origin = os.path.join(root, d)
-                path = os.path.join(output, origin[basepathlen:])
+                path = os.path.join(output, self._parse(origin[basepathlen:]))
                 if not os.path.exists(path):
                     LOGGER.info('Creating directory %s', path)
                     os.makedirs(path)
             for f in files:
                 origin = os.path.join(root, f)
-                path = os.path.join(output, origin[basepathlen:])
+                path = os.path.join(output, self._parse(origin[basepathlen:]))
                 with open(origin) as fd:
                     if path.endswith('.jinja'):
                         target = path[:-len('.jinja')]
                         LOGGER.info('Applying template %s to %s',
                                     origin, target)
-                        template = jinja2.Template(fd.read())
-                        content = template.render(Variables())
+                        content = self._parse(fd.read())
                     else:
                         target = path
                         LOGGER.info('Copying file %s to %s', origin, target)
@@ -82,8 +81,14 @@ class CallCopy(object):
                         'File "%s" already exists and will not be overriden.',
                         target)
                     continue
-                with open(target, 'w+') as fd:
-                    fd.write(content)
+                self._write_result(target, content)
+
+    def _parse(self, template):
+        return jinja2.Template(template).render(Variables())
+
+    def _write_result(self, target, content):
+        with open(target, 'w+') as fd:
+            fd.write(content)
 
 
 class CallPrompt(object):
