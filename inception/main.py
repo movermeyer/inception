@@ -53,7 +53,7 @@ class CallCopy(object):
         self._source = source
 
     def __call__(self, config, template_path, output):
-        source = self._source or template_path
+        source = os.path.join(template_path, self._source)
         LOGGER.debug('running CallCopy("%s")', source )
         basepathlen = len(source) + 1
         for root, dirs, files in os.walk(source):
@@ -72,13 +72,13 @@ class CallCopy(object):
                         LOGGER.info('Applying template %s to %s',
                                     origin, target)
                         template = jinja2.Template(fd.read())
-                        content = template.render(config)
+                        content = template.render(Variables())
                     else:
                         target = path
                         LOGGER.info('Copying file %s to %s', origin, target)
                         content = fd.read()
                 if os.path.exists(target):
-                    LOGGER.info(
+                    LOGGER.warning(
                         'File "%s" already exists and will not be overriden.',
                         target)
                     continue
@@ -122,18 +122,13 @@ class Loader(object):
             exec(fd.read(), COMMANDS.copy(), config)
         return config
 
-    @property
-    def file_path(self):
-        return os.path.join(self.path, 'files')
-
 
 class Runner(object):
     def __init__(self, loader):
         self._loader = loader
-        self._config = None
+        self._config = loader.config
 
     def run(self, output):
-        self.load_config()
         program = self._config.get('PROGRAM') or [CallPrompt(), CallCopy()]
 
         for command in program:
@@ -141,26 +136,8 @@ class Runner(object):
             if callable(command):
                 command(self._config, self._loader.path, output)
                 continue
-            if isinstance(command, dict):
-                self.execute(output=output, **command)
-                continue
-            if isinstance(command, (tuple, list)):
-                self.execute(*command, output=output)
-                continue
-            if isinstance(command, str):
-                self.execute('shell', command, output=output)
-                continue
-
-    def load_config(self):
-        self._config = self._loader.config
-
-    def execute(self, type, arg=None, output=None):
-        command = COMMANDS.get(type)
-        if command is None:
-            LOGGER.error('Invalid format')
-            return  # FIXME: Improve!!
-        command(arg)
-
+            else:
+                LOGGER.error('Unsupported command: %s', command)
 
 def logging_setup(verbose):
     if verbose:
