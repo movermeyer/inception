@@ -13,7 +13,7 @@ Goal and Philosophy
 
 Manages templates to allow projects inception.
 
-I'm tired of doing repetitive steps whenever I create a new project: configure Travis, add the ``.gitignore``, create a new ``setup.py``, etc. So I decided to automate it.
+I'm tired of doing repetitive steps whenever I create a new project: configure Travis, add the ``.gitignore``, create a new ``setup.py``, etc. So I decided to automate it. And I want anybody can contribute with templates **without any Python knowledge**.
 
 This project is in its first stages, so do not be too tidy.
 

@@ -19,7 +19,7 @@ import os
 import argparse
 import jinja2
 import logging
-
+import subprocess
 import inquirer
 
 from version import APP
@@ -29,11 +29,11 @@ LOGGER = logging.getLogger(__name__)
 
 class Loader(object):
     def __init__(self, path):
-        self._path = path
+        self.path = path
 
     @property
     def config(self):
-        filename = os.path.join(self._path, 'settings.py')
+        filename = os.path.join(self.path, 'settings.py')
         config = {}
         a = {}
         with open(filename) as fd:
@@ -42,7 +42,7 @@ class Loader(object):
 
     @property
     def file_path(self):
-        return os.path.join(self._path, 'files')
+        return os.path.join(self.path, 'files')
 
 
 class Runner(object):
@@ -53,14 +53,38 @@ class Runner(object):
 
     def run(self, output):
         self.load_config()
-        self.inquire()
-        self.generate(output)
+        program = self._config.get('PROGRAM') or [['prompt'], ['copy']]
+
+        for command in program:
+            LOGGER.debug('Running command: %s', command)
+            if callable(command):
+                command(self._config, loader.path, output)
+                continue
+            if isinstance(command, dict):
+                self.execute(output=output, **command)
+                continue
+            if isinstance(command, (tuple, list)):
+                self.execute(*command, output=output)
+                continue
+            if isinstance(command, str):
+                self.execute('shell', command, output=output)
+                continue
 
     def load_config(self):
         self._config = self._loader.config
 
-    def inquire(self):
-        questions = self._config.get('QUESTIONS')
+    def execute(self, type, arg=None, output=None):
+        if type=='shell':
+            return subprocess.call(arg)
+        if type=='prompt':
+            return self.inquire(arg)
+        if type=='copy':
+            source = arg
+            return self.generate(source, output)
+        #FIXME: print error
+
+    def inquire(self, questions=None):
+        questions = questions or self._config.get('QUESTIONS')
         if questions is None:
             return
         if isinstance(questions, str):
@@ -70,9 +94,10 @@ class Runner(object):
             q = inquirer.questions.load_from_list(questions)
             self._variables = inquirer.prompt(q)
 
-    def generate(self, output):
-        basepathlen = len(self._loader.file_path) + 1
-        for root, dirs, files in os.walk(self._loader.file_path):
+    def generate(self, source, output):
+        source = source or self._loader.file_path
+        basepathlen = len(source) + 1
+        for root, dirs, files in os.walk(source):
             for d in dirs:
                 origin = os.path.join(root, d)
                 path = os.path.join(output, origin[basepathlen:])
