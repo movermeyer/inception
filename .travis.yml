@@ -11,13 +11,13 @@ python:
 install:
   - python setup.py install
   - pip install flake8
+  - pip install python-coveralls
 
 script:
-  - python setup.py test
   - flake8 setup.py inception tests
+  - python setup.py test
 
 after_success:
-  - pip install python-coveralls
   - coveralls
 
 notifications:

@@ -32,5 +32,9 @@ class TestBasic(unittest.TestCase):
         assert os.path.exists('output/example2.txt')
         assert os.path.exists('output/foo/bar/bazz.txt')
         assert os.path.exists('output/foo/bar/foo.txt')
+        assert os.path.exists('output/foo/executable')
         with open('output/example2.txt') as fd:
             assert 'this is a template file foo' == fd.read()
+        assert os.access('output/example1.txt', os.W_OK | os.R_OK)
+        assert not os.access('output/example1.txt', os.X_OK)
+        assert os.access('output/foo/executable', os.X_OK | os.W_OK | os.R_OK)

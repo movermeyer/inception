@@ -81,14 +81,15 @@ class CallCopy(object):
                         'File "%s" already exists and will not be overriden.',
                         target)
                     continue
-                self._write_result(target, content)
+                self._write_result(target, content, origin)
 
     def _parse(self, template):
         return jinja2.Template(template).render(Variables())
 
-    def _write_result(self, target, content):
+    def _write_result(self, target, content, origin):
         with open(target, 'w+') as fd:
             fd.write(content)
+        os.chmod(target,  os.stat(origin).st_mode)
 
 
 class CallPrompt(object):
