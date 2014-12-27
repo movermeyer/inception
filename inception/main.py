@@ -44,7 +44,7 @@ class CallRun(object):
         self._command = command
 
     def __call__(self, config, template_path, output):
-        LOGGER.debug('running CallRun("%s")', self._command )
+        LOGGER.debug('running CallRun("%s")', self._command)
         return subprocess.call(self._command)
 
 
@@ -54,7 +54,7 @@ class CallCopy(object):
 
     def __call__(self, config, template_path, output):
         source = os.path.join(template_path, self._source)
-        LOGGER.debug('running CallCopy("%s")', source )
+        LOGGER.debug('running CallCopy("%s")', source)
         basepathlen = len(source) + 1
         for root, dirs, files in os.walk(source):
             for d in dirs:
@@ -109,9 +109,9 @@ class CallPrompt(object):
 
 
 COMMANDS = dict(
-    run = CallRun,
-    copy = CallCopy,
-    prompt = CallPrompt,
+    run=CallRun,
+    copy=CallCopy,
+    prompt=CallPrompt,
 )
 
 
@@ -143,6 +143,7 @@ class Runner(object):
                 continue
             else:
                 LOGGER.error('Unsupported command: %s', command)
+
 
 def logging_setup(verbose):
     if verbose:

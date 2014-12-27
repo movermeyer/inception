@@ -15,7 +15,10 @@ class TestBasic(unittest.TestCase):
             shutil.rmtree('output')
 
     def test_foo(self):
-        p = pexpect.spawn('python inception/__main__.py --template-path examples/basic -o output --verbose')
+        p = pexpect.spawn(
+            'python inception/__main__.py --template-path examples/basic '
+            '-o output --verbose'
+        )
         p.expect('name:', timeout=1)
         p.sendline('foo')
         p.expect('surname:', timeout=1)
