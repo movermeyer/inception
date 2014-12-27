@@ -9,9 +9,11 @@ python:
 install:
   - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then pip install unittest2; fi
   - python setup.py install
+  - pip install flake8
 
 script:
   - python setup.py test
+  - flake8 setup.py inception tests
 
 after_success:
   - coveralls
