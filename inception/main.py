@@ -45,7 +45,7 @@ class CallRun(object):
 
     def __call__(self, config, template_path, output):
         LOGGER.debug('running CallRun("%s")', self._command)
-        return subprocess.call(self._command)
+        return subprocess.check_call(self._command, shell=True, cwd=output)
 
 
 class CallCopy(object):
