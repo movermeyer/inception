@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import subprocess
 
 from setuptools.command.test import test as TestCommand
 from setuptools import setup, find_packages
@@ -25,10 +26,16 @@ class PyTest(TestCommand):
         self.test_suite = True
 
     def run_tests(self):
-        #import here, cause outside the eggs aren't loaded
+        # import here, cause outside the eggs aren't loaded
         import pytest
-        errno = pytest.main(self.pytest_args or ['--cov-report=term-missing'])
+        errno = (
+            self.run_flakes()
+            or pytest.main(self.pytest_args or ['--cov-report=term-missing'])
+        )
         sys.exit(errno)
+
+    def run_flakes(self):
+        return subprocess.check_call("flake8 inception tests setup.py".split())
 
 
 setup(name='inception',
@@ -50,7 +57,7 @@ setup(name='inception',
       packages=find_packages(exclude=['tests']),
       include_package_data=True,
       zip_safe=False,
-      cmdclass = {'test': PyTest},
+      cmdclass={'test': PyTest},
       tests_require=[
           'flake8 >= 2.1.0',
           'python-coveralls >= 2.4.2',
