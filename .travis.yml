@@ -17,6 +17,7 @@ script:
   - flake8 setup.py inception tests
 
 after_success:
+  - pip install python-coveralls
   - coveralls
 
 notifications:
