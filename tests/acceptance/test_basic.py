@@ -23,7 +23,7 @@ class TestBasic(unittest.TestCase):
         p.expect('Micro', timeout=1)
         p.sendline('\x0d')
         while p.isalive():
-            sleep(0.1)
+            time.sleep(0.1)
 
         assert os.path.exists('output/example1.txt')
         assert os.path.exists('output/example2.txt')
