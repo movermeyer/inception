@@ -62,7 +62,7 @@ setup(name='inception',
           'pexpect',
       ],
       install_requires=[
-          'inquirer >= 2.1.2',
+          'inquirer >= 2.1.3',
           'jinja2 >= 2.7.3',
       ],
       )
