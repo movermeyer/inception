@@ -15,190 +15,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
 import argparse
 import logging
-import subprocess
-import zipfile
-
-import jinja2
-import inquirer
 
 from version import APP
+from loader import get_loader
+from commands import DEFAULT_PROGRAM
 
-LOGGER = logging.getLogger(__name__)
-
-
-class Variables(dict):
-    _instance = None
-
-    def __new__(cls, **kwargs):
-        if cls._instance is None:
-            cls._instance = super(Variables, cls).__new__(cls, **kwargs)
-        return cls._instance
-
-    def reset(self):
-        self.clear()
-
-
-class CallRun(object):
-    def __init__(self, command):
-        self._command = command
-
-    def __call__(self, loader, output):
-        LOGGER.debug('running CallRun("%s")', self._command)
-        return subprocess.check_call(self._command, shell=True, cwd=output)
-
-
-class CallCopy(object):
-    def __init__(self, source='files'):
-        self._source = source
-
-    def __call__(self, loader, output):
-        for path_content in loader.walk(self._source):
-            path = os.path.join(output,
-                                self._parse(path_content.relative_path))
-            if path_content.is_dir:
-                if not os.path.exists(path):
-                    LOGGER.info('Creating directory %s', path)
-                    os.makedirs(path)
-                continue
-            if path_content.is_file:
-                if path_content.relative_path.endswith('.jinja'):
-                    relative = path_content.relative_path[:-len('.jinja')]
-                    content = self._parse(path_content.content)
-                else:
-                    relative = path_content.relative_path
-                    content = path_content.content
-                target = os.path.join(output, self._parse(relative))
-                if os.path.exists(target):
-                    LOGGER.warning(
-                        'File "%s" already exists and will not be overriden.',
-                        target)
-                    continue
-                self._write_result(target, content, path_content.permission)
-
-    def _parse(self, template):
-        return jinja2.Template(template).render(Variables())
-
-    def _write_result(self, target, content, perms):
-        LOGGER.debug('writting file %s', target)
-        with open(target, 'w+') as fd:
-            fd.write(content)
-        if perms is not None:
-            os.chmod(target,  perms)
-
-
-class CallPrompt(object):
-    def __init__(self, questions=None):
-        self._questions = questions
-
-    def __call__(self, loader, output):
-        questions = self._questions or loader.settings.get('QUESTIONS')
-        if questions is None:
-            LOGGER.debug('No questions to prompt')
-            return
-
-        if isinstance(questions, str):
-            q = inquirer.load_from_json(questions)
-        if isinstance(questions, list):
-            q = inquirer.questions.load_from_list(questions)
-        Variables().update(inquirer.prompt(q))
-
-
-COMMANDS = dict(
-    run=CallRun,
-    copy=CallCopy,
-    prompt=CallPrompt,
-)
-
-
-class PathContent(object):
-    CAT_DIR = object()
-    CAT_FILE = object()
-
-    def __init__(self, category, relative_path, permission=None, content=None):
-        self._category = category
-        self.relative_path = relative_path
-        self.permission = permission
-        self.content = content
-
-    @property
-    def is_dir(self):
-        return self._category == self.CAT_DIR
-
-    @property
-    def is_file(self):
-        return self._category == self.CAT_FILE
-
-
-class Loader(object):
-    def __init__(self, path):
-        self.path = path
-        self._settings = None
-
-    @property
-    def settings(self):
-        if self._settings is None:
-            self.load_settings()
-        return self._settings
-
-    def walk(self, relative_path):
-        raise NotImplemented('Abstract method')
-
-
-class PathLoader(Loader):
-    def load_settings(self):
-        filename = os.path.join(self.path, 'settings.py')
-        config = {}
-        with open(filename) as fd:
-            exec(fd.read(), COMMANDS.copy(), config)
-        self._settings = config
-
-    def walk(self, relative_path):
-        source = os.path.join(self.path, relative_path)
-        LOGGER.debug('walking over ("%s")', source)
-        basepathlen = len(source) + 1
-
-        for root, dirs, files in os.walk(source):
-            for d in dirs:
-                origin = os.path.join(root, d)
-                path = origin[basepathlen:]
-                perms = os.stat(origin).st_mode
-                yield PathContent(PathContent.CAT_DIR, path, perms)
-            for f in files:
-                origin = os.path.join(root, f)
-                path = origin[basepathlen:]
-                perms = os.stat(origin).st_mode
-                with open(origin) as fd:
-                    yield PathContent(PathContent.CAT_FILE, path, perms,
-                                      fd.read())
-
-
-class ZipLoader(Loader):
-    def load_settings(self):
-        with zipfile.ZipFile(self.path) as z:
-            with z.open('settings.py') as fd:
-                config = {}
-                exec(fd.read(), COMMANDS.copy(), config)
-        self._settings = config
-
-    def walk(self, relative_path):
-        dirs = set()
-        with zipfile.ZipFile(self.path) as z:
-            for name in z.namelist():
-                yield PathContent(PathContent.CAT_DIR,
-                                  os.path.dirname(name))
-                yield PathContent(PathContent.CAT_FILE, name,
-                                  None, z.read(name))
-
-
-def get_loader(path):
-    if os.path.isdir(path):
-        return PathLoader(path)
-    if zipfile.is_zipfile(path):
-        return ZipLoader(path)
-    # FIXME: raise exception
+LOGGER = logging.getLogger('inception.' + __name__)
 
 
 class Runner(object):
@@ -207,7 +31,7 @@ class Runner(object):
 
     def run(self, output):
         program = (self._loader.settings.get('PROGRAM')
-                   or [CallPrompt(), CallCopy()])
+                   or DEFAULT_PROGRAM)
 
         for command in program:
             LOGGER.debug('New program command: %s', command)
@@ -230,9 +54,10 @@ def logging_setup(verbose):
     formatter = logging.Formatter(FORMAT, DATEFORMAT)
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
-    LOGGER.addHandler(handler)
-    LOGGER.setLevel(LEVEL)
-    LOGGER.debug('Verbose mode activated')
+    logger = logging.getLogger('inception')
+    logger.addHandler(handler)
+    logger.setLevel(LEVEL)
+    logger.debug('Verbose mode activated')
 
 
 def main():
