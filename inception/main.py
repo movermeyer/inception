@@ -85,7 +85,8 @@ class CallCopy(object):
         LOGGER.debug('writting file %s', target)
         with open(target, 'w+') as fd:
             fd.write(content)
-        os.chmod(target,  perms)
+        if perms is not None:
+            os.chmod(target,  perms)
 
 
 class CallPrompt(object):
@@ -116,7 +117,7 @@ class PathContent(object):
     CAT_DIR = object()
     CAT_FILE = object()
 
-    def __init__(self, category, relative_path, permission, content=None):
+    def __init__(self, category, relative_path, permission=None, content=None):
         self._category = category
         self.relative_path = relative_path
         self.permission = permission
@@ -131,7 +132,7 @@ class PathContent(object):
         return self._category == self.CAT_FILE
 
 
-class PathLoader(object):
+class Loader(object):
     def __init__(self, path):
         self.path = path
         self._settings = None
@@ -139,12 +140,20 @@ class PathLoader(object):
     @property
     def settings(self):
         if self._settings is None:
-            filename = os.path.join(self.path, 'settings.py')
-            config = {}
-            with open(filename) as fd:
-                exec(fd.read(), COMMANDS.copy(), config)
-            self._settings = config
+            self.load_settings()
         return self._settings
+
+    def walk(self, relative_path):
+        raise NotImplemented('Abstract method')
+
+
+class PathLoader(Loader):
+    def load_settings(self):
+        filename = os.path.join(self.path, 'settings.py')
+        config = {}
+        with open(filename) as fd:
+            exec(fd.read(), COMMANDS.copy(), config)
+        self._settings = config
 
     def walk(self, relative_path):
         source = os.path.join(self.path, relative_path)
@@ -166,9 +175,22 @@ class PathLoader(object):
                                       fd.read())
 
 
-class ZipLoader(object):
-    def __init__(self, ):
-        pass
+class ZipLoader(Loader):
+    def load_settings(self):
+        with zipfile.ZipFile(self.path) as z:
+            with z.open('settings.py') as fd:
+                config = {}
+                exec(fd.read(), COMMANDS.copy(), config)
+        self._settings = config
+
+    def walk(self, relative_path):
+        dirs = set()
+        with zipfile.ZipFile(self.path) as z:
+            for name in z.namelist():
+                yield PathContent(PathContent.CAT_DIR,
+                                  os.path.dirname(name))
+                yield PathContent(PathContent.CAT_FILE, name,
+                                  None, z.read(name))
 
 
 def get_loader(path):
