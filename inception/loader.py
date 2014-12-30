@@ -52,6 +52,7 @@ class Loader(object):
     def __init__(self, path):
         self.path = path
         self._settings = None
+        self._metadata = None
 
     @property
     def settings(self):
@@ -59,17 +60,29 @@ class Loader(object):
             self.load_settings()
         return self._settings
 
+    @property
+    def metadata(self):
+        if self._metadata is None:
+            self.load_metadata()
+        return self._metadata
+
+    def load_settings(self):
+        self._settings = self.load_python('settings.py')
+
+    def load_metadata(self):
+        self._metadata = self.load_python('metadata.py')
+
     def walk(self, relative_path):
         raise NotImplemented('Abstract method')
 
 
 class PathLoader(Loader):
-    def load_settings(self):
-        filename = os.path.join(self.path, 'settings.py')
+    def load_python(self, filename):
+        filename = os.path.join(self.path, filename)
         config = {}
         with open(filename) as fd:
             exec(fd.read(), COMMANDS.copy(), config)
-        self._settings = config
+        return config
 
     def walk(self, relative_path):
         source = os.path.join(self.path, relative_path)
@@ -92,12 +105,12 @@ class PathLoader(Loader):
 
 
 class ZipLoader(Loader):
-    def load_settings(self):
+    def load_python(self, filename):
         with zipfile.ZipFile(self.path) as z:
-            with z.open('settings.py') as fd:
+            with z.open(filename) as fd:
                 config = {}
                 exec(fd.read(), COMMANDS.copy(), config)
-        self._settings = config
+        return config
 
     def walk(self, relative_path):
         dirs = set()
