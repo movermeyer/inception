@@ -26,6 +26,8 @@ import zipfile
 
 from commands import COMMANDS
 
+__all__ = ('get_loader', )
+
 LOGGER = logging.getLogger('inception.' + __name__)
 
 
@@ -66,11 +68,32 @@ class Loader(object):
             self.load_metadata()
         return self._metadata
 
+    @property
+    def name(self):
+        return self.metadata.get('name')
+
+    @property
+    def version_str(self):
+        return self.metadata.get('version')
+
+    @property
+    def version(self):
+        v = self.version_str or ''
+        return v.split('.')
+
+    @property
+    def description(self):
+        return self.metadata.get('description', '')
+
     def load_settings(self):
         self._settings = self.load_python('settings.py')
 
     def load_metadata(self):
         self._metadata = self.load_python('metadata.py')
+
+    def validate(self):
+        assert self.name
+        assert self.version
 
     def walk(self, relative_path):
         raise NotImplemented('Abstract method')

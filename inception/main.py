@@ -22,12 +22,15 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from __future__ import  absolute_import, print_function, unicode_literals
+
 import argparse
 import logging
 
 from version import APP
 from loader import get_loader
 from commands import DEFAULT_PROGRAM
+import downloader
 
 LOGGER = logging.getLogger('inception.' + __name__)
 
@@ -69,6 +72,9 @@ def logging_setup(verbose):
 
 def main():
     parser = argparse.ArgumentParser(description=APP.description)
+    parser.add_argument('action', choices=['apply', 'add'], default='apply',
+                        nargs='?',
+                        help="Action to be performed")
     parser.add_argument('--template-path', dest="path", required=True,
                         help='Path to template to be applied.')
 
@@ -82,10 +88,13 @@ def main():
 
     logging_setup(args.verbose)
 
-    loader = get_loader(args.path)
-    runner = Runner(loader)
-    runner.run(args.output)
-
+    if args.action == 'apply':
+        loader = get_loader(args.path)
+        runner = Runner(loader)
+        runner.run(args.output)
+    elif args.action == 'add':
+        fm = downloader.FileManager()
+        fm.save(args.path)
 
 if __name__ == '__main__':
     main()
