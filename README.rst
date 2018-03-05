@@ -260,11 +260,11 @@ Licensed under `the MIT license`_.
   :target: `Coveralls`_
   :alt: Coveralls results_
 
-.. |pip version| image:: https://pypip.in/v/inception/badge.png
+.. |pip version| image:: https://img.shields.io/pypi/v/inception.svg
     :target: https://pypi.python.org/pypi/inception
     :alt: Latest PyPI version
 
-.. |pip downloads| image:: https://pypip.in/d/inception/badge.png
+.. |pip downloads| image:: https://img.shields.io/pypi/dm/inception.svg
     :target: https://pypi.python.org/pypi/inception
     :alt: Number of PyPI downloads
 
